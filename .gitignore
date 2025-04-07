@@ -1,0 +1,28 @@
+# Virtual Environment
+venv/
+
+# Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# Streamlit config file
+*.streamlit/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+
+# Log files
+*.log

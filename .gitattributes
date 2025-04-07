@@ -1,2 +1,17 @@
-# Auto detect text files and perform LF normalization
+# Set default behavior to automatically normalize line endings.
 * text=auto
+
+# Python files should always use LF line endings.
+*.py text eol=lf
+
+# Mark log files as binary to avoid merging conflicts.
+*.log binary
+
+# Ensure Jupyter notebooks handle line endings correctly.
+*.ipynb text eol=lf
+
+# Mark all CSV files as text files, with LF line endings.
+*.csv text eol=lf
+
+# Mark virtual environment as binary
+venv/* binary
