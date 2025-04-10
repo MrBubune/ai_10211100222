@@ -1,37 +1,79 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from sklearn.decomposition import PCA
+import plotly.express as px
+import plotly.graph_objects as go
+import io
 
-def show():
-    st.header("🔗 Clustering Task")
+def clustering_section():
+    st.header("🔍 Clustering Explorer")
+    st.write("Upload your dataset, choose features, and explore clusters interactively.")
 
-    uploaded_file = st.file_uploader("Upload Dataset", type=["csv"])
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        st.write("Preview Dataset", df.head())
-        
-        numeric_df = df.select_dtypes(include=['float64', 'int64'])
-        k = st.slider("Select Number of Clusters", 2, 10, 3)
+    uploaded_file = st.file_uploader("Upload CSV file", type=["csv"], key="clustering")
+    if uploaded_file is not None:
+        data = pd.read_csv(uploaded_file)
+        st.subheader("Dataset Preview")
+        st.dataframe(data.head())
 
-        if st.button("Run K-Means Clustering"):
-            model = KMeans(n_clusters=k)
-            df['Cluster'] = model.fit_predict(numeric_df)
+        columns = data.columns.tolist()
+        selected_features = st.multiselect("Select features for clustering", columns)
+        if len(selected_features) < 2:
+            st.warning("Please select at least 2 features.")
+            return
 
-            if numeric_df.shape[1] >= 3:
-                fig = plt.figure()
-                ax = fig.add_subplot(111, projection='3d')
-                ax.scatter(numeric_df.iloc[:,0], numeric_df.iloc[:,1], numeric_df.iloc[:,2], c=df['Cluster'], cmap='viridis')
-                ax.set_xlabel(numeric_df.columns[0])
-                ax.set_ylabel(numeric_df.columns[1])
-                ax.set_zlabel(numeric_df.columns[2]) # type: ignore
-                st.pyplot(fig)
-            else:
-                st.write("📉 2D Cluster Plot")
-                plt.scatter(numeric_df.iloc[:, 0], numeric_df.iloc[:, 1], c=df['Cluster'], cmap='viridis')
-                plt.xlabel(numeric_df.columns[0])
-                plt.ylabel(numeric_df.columns[1])
-                st.pyplot(plt)
+        if st.checkbox("Drop rows with missing values"):
+            data = data.dropna(subset=selected_features)
+            st.success("Dropped rows with missing values.")
 
-            st.download_button("Download Clustered Data", df.to_csv(index=False), "clustered_data.csv")
+        X = data[selected_features]
+
+        if not all(np.issubdtype(X[feat].dtype, np.number) for feat in selected_features):
+            st.error("All selected features must be numeric.")
+            return
+
+        num_clusters = st.slider("Select number of clusters", min_value=2, max_value=10, value=3)
+
+        kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init='auto')
+        clusters = kmeans.fit_predict(X)
+        data['Cluster'] = clusters
+
+        st.subheader("Cluster Summary")
+        st.dataframe(data.groupby('Cluster').mean().reset_index())
+
+        st.subheader("Interactive Cluster Visualization")
+        if len(selected_features) == 2:
+            fig = px.scatter(
+                data, x=selected_features[0], y=selected_features[1],
+                color=data['Cluster'].astype(str), symbol=data['Cluster'].astype(str),
+                title="2D Cluster Visualization", labels={"color": "Cluster"}
+            )
+            fig.update_traces(marker=dict(size=10, line=dict(width=1, color='DarkSlateGrey')))
+            st.plotly_chart(fig, use_container_width=True)
+
+        elif len(selected_features) == 3:
+            fig = px.scatter_3d(
+                data, x=selected_features[0], y=selected_features[1], z=selected_features[2],
+                color=data['Cluster'].astype(str), title="3D Cluster Visualization"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        else:
+            pca = PCA(n_components=3)
+            components = pca.fit_transform(X)
+            data[['PC1', 'PC2', 'PC3']] = components
+            fig = px.scatter_3d(
+                data, x='PC1', y='PC2', z='PC3', color=data['Cluster'].astype(str),
+                title="PCA-based 3D Clustering Visualization"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("Download Clustered Dataset")
+        csv = data.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download CSV with Clusters",
+            data=csv,
+            file_name="clustered_output.csv",
+            mime="text/csv"
+        )

@@ -1,48 +1,83 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split
 
-def show():
-    st.header("📈 Regression Task")
-    
-    uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
-    
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        st.write("Preview Dataset", df.head())
+def regression_section():
+    st.header("📈 Regression Analysis")
+    st.write("Upload your regression dataset, select the target column, and view predictions and visualizations.")
 
-        target_col = st.text_input("Enter the name of the target column")
+    uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
+    if uploaded_file is not None:
+        data = pd.read_csv(uploaded_file)
+        st.subheader("Dataset Preview")
+        st.dataframe(data.head())
 
-        if target_col in df.columns:
-            X = df.drop(columns=[target_col])
-            y = df[target_col]
+        if st.checkbox("Show dataset summary"):
+            st.write(data.describe())
 
-            st.write("Feature Columns:", list(X.columns))
+        columns = data.columns.tolist()
+        target_column = st.selectbox("Select target column", columns)
+        feature_columns = st.multiselect("Select feature columns", [col for col in columns if col != target_column])
 
-            if st.checkbox("Train Model"):
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-                model = LinearRegression()
-                model.fit(X_train, y_train)
-                predictions = model.predict(X_test)
+        if not feature_columns:
+            st.warning("Please select at least one feature column.")
+            return
 
-                st.subheader("Performance Metrics")
-                st.write("MAE:", mean_absolute_error(y_test, predictions))
-                st.write("R² Score:", r2_score(y_test, predictions))
+        if st.checkbox("Drop rows with missing values"):
+            data = data.dropna(subset=feature_columns + [target_column])
+            st.success("Dropped rows with missing values.")
 
-                fig, ax = plt.subplots()
-                ax.scatter(y_test, predictions)
-                ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
-                ax.set_xlabel("Actual")
-                ax.set_ylabel("Predicted")
-                st.pyplot(fig)
+        X = data[feature_columns]
+        y = data[target_column]
 
-                st.subheader("Make Prediction")
-                custom_input = {}
-                for col in X.columns:
-                    custom_input[col] = st.number_input(f"{col}", value=0.0)
-                input_df = pd.DataFrame([custom_input])
-                pred = model.predict(input_df)
-                st.success(f"Predicted Value: {pred[0]}")
+        if not all(np.issubdtype(X[feat].dtype, np.number) for feat in feature_columns):
+            st.error("All selected features must be numeric for regression.")
+            return
+
+        test_size = st.slider("Test Set Size (%)", 10, 50, 20) / 100.0
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+
+        model = LinearRegression()
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+
+        st.subheader("Model Performance")
+        st.metric("Mean Absolute Error (MAE)", f"{mae:.2f}")
+        st.metric("R² Score", f"{r2:.2f}")
+
+        st.subheader("Actual vs Predicted Values")
+        fig, ax = plt.subplots()
+        ax.scatter(y_test, y_pred, alpha=0.7)
+        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
+        ax.set_xlabel("Actual")
+        ax.set_ylabel("Predicted")
+        ax.set_title("Actual vs Predicted")
+        st.pyplot(fig)
+
+        if len(feature_columns) == 1:
+            st.subheader("Regression Line Visualization")
+            fig2, ax2 = plt.subplots()
+            ax2.scatter(X_test, y_test, label="Actual")
+            ax2.plot(X_test, y_pred, color='red', label="Regression Line")
+            ax2.set_xlabel(feature_columns[0])
+            ax2.set_ylabel(target_column)
+            ax2.set_title("Regression Line")
+            ax2.legend()
+            st.pyplot(fig2)
+
+        st.subheader("Custom Prediction")
+        user_input = {}
+        for feature in feature_columns:
+            user_input[feature] = st.number_input(f"Enter value for {feature}", value=float(X[feature].mean()))
+
+        if st.button("Predict"):
+            user_df = pd.DataFrame([user_input])
+            prediction = model.predict(user_df)[0]
+            st.success(f"Predicted {target_column}: {prediction:.2f}")
