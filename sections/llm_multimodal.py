@@ -11,77 +11,72 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    st.error("Gemini API key not found. Please set the GEMINI_API_KEY in your environment.")
+    st.error("❌ Gemini API key not found. Please add GEMINI_API_KEY to your .env file.")
 else:
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel("gemini-pro-vision")
 
-
-def extract_text_from_pdf(uploaded_file):
+def extract_text_from_pdf(file_path):
+    """Extracts text from a local PDF file."""
     try:
-        reader = PyPDF2.PdfReader(uploaded_file)
-        return "\n".join([page.extract_text() or "" for page in reader.pages])
+        with open(file_path, "rb") as file:
+            reader = PyPDF2.PdfReader(file)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() or ""
+            return text
     except Exception as e:
         st.error(f"Error reading PDF: {e}")
         return ""
 
+def load_csv_data(file_path):
+    """Reads a local CSV file and returns a DataFrame."""
+    try:
+        return pd.read_csv(file_path)
+    except Exception as e:
+        st.error(f"Error loading CSV: {e}")
+        return None
+
 def llm_multimodal_section():
     st.header("💬 LLM Q&A with Gemini AI")
-    st.write("Ask questions about text, documents, or images using Gemini AI.")
+    st.write("Ask questions about documents and data using Gemini AI.")
 
-    approach = st.radio("Choose Mode:", ("Text (RAG)", "Document/Image (Multimodal)"), horizontal=True)
+    # Dataset selection
+    st.subheader("📂 Select a Preloaded Dataset")
+    datasets = {
+        "Ghana Election Results (CSV)": "datasets/Ghana_Election_Result.csv",
+        "2025 Budget Statement (PDF)": "datasets/2025-Budget-Statement-and-Economic-Policy_v4.pdf",
+        "Academic City Student Handbook (PDF)": "datasets/handbook.pdf"
+    }
 
-    if approach == "Text (RAG)":
-        context = st.text_area("Enter context (text)", height=200)
-        question = st.text_input("Enter your question")
-        if st.button("Ask Gemini"):
-            if context and question:
-                with st.spinner("Generating answer..."):
-                    response = model.generate_content([context, question])
-                    st.success("Answer:")
-                    st.write(response.text)
-            else:
-                st.warning("Please provide both context and question.")
+    dataset_name = st.selectbox("Choose a dataset:", list(datasets.keys()))
+    selected_path = datasets[dataset_name]
+    content = None
 
-    else:
-        input_type = st.radio("Input Type", ("PDF/TXT/CSV", "Image"))
-        content = None
+    # Display and extract content
+    if selected_path.endswith(".csv"):
+        df = load_csv_data(selected_path)
+        if df is not None:
+            st.subheader("📊 CSV Preview")
+            st.dataframe(df.head())
+            content = df.to_string(index=False)
 
-        if input_type == "PDF/TXT/CSV":
-            file = st.file_uploader("Upload a document", type=["pdf", "txt", "csv"])
-            if file:
-                if file.name.endswith(".pdf"):
-                    content = extract_text_from_pdf(file)
-                elif file.name.endswith(".txt"):
-                    content = file.read().decode("utf-8")
-                elif file.name.endswith(".csv"):
-                    try:
-                        df = pd.read_csv(file)
-                        content = df.to_string(index=False)
-                    except Exception as e:
-                        st.error(f"Error reading CSV: {e}")
+    elif selected_path.endswith(".pdf"):
+        st.subheader("📄 PDF Content Preview")
+        content = extract_text_from_pdf(selected_path)
+        st.text(content[:1000] + "..." if len(content) > 1000 else content)
 
-                if content:
-                    st.subheader("Preview Extracted Content")
-                    st.text(content[:1000] + "..." if len(content) > 1000 else content)
-
-        elif input_type == "Image":
-            image_file = st.file_uploader("Upload an image", type=["jpg", "png"])
-            if image_file:
+    # Ask a question
+    st.subheader("❓ Ask a Question")
+    question = st.text_input("Enter your question:")
+    if st.button("Ask Gemini"):
+        if content and question:
+            with st.spinner("Thinking..."):
                 try:
-                    image = Image.open(image_file)
-                    content = image
-                    st.image(image, caption="Uploaded Image", use_container_width=True)
+                    response = model.generate_content([content, question])
+                    st.success("🧠 Gemini's Answer:")
+                    st.write(response.text)
                 except Exception as e:
-                    st.error(f"Image error: {e}")
-
-        if content:
-            question = st.text_input("Enter your question about the content")
-            if st.button("Ask Gemini AI"):
-                with st.spinner("Thinking..."):
-                    try:
-                        response = model.generate_content([content, question])
-                        st.success("Answer:")
-                        st.write(response.text)
-                    except Exception as e:
-                        st.error(f"Gemini Error: {e}")
+                    st.error(f"Error generating answer: {e}")
+        else:
+            st.warning("Please select a dataset and enter a question.")
