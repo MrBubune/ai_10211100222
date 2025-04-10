@@ -40,7 +40,19 @@ def clustering_section():
         data['Cluster'] = clusters
 
         st.subheader("Cluster Summary")
-        st.dataframe(data.groupby('Cluster').mean().reset_index())
+        numeric_cols = data.select_dtypes(include=['number']).columns
+        st.subheader("Cluster Centroid Summary")
+        # Get numeric columns AFTER adding the cluster labels
+        if 'Cluster' in data.columns:
+            numeric_cols = data.select_dtypes(include=['number']).columns.tolist()
+        
+            # Group only by numeric features + Cluster
+            st.subheader("Cluster Centroid Summary")
+            try:
+                st.dataframe(data[numeric_cols].groupby('Cluster').mean().reset_index())
+            except Exception as e:
+                st.warning(f"Could not summarize clusters: {e}")
+
 
         st.subheader("Interactive Cluster Visualization")
         if len(selected_features) == 2:

@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import PyPDF2
 from PIL import Image
-from google import genai
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -15,6 +15,7 @@ if not GEMINI_API_KEY:
 else:
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel("gemini-pro-vision")
+
 
 def extract_text_from_pdf(uploaded_file):
     try:
