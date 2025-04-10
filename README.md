@@ -145,9 +145,7 @@ The LLM Q&A section utilizes the following architecture:
 | **Customization**     | User-defined input and preprocessing | Limited to text prompts     |
 | **Integration**       | Seamless integration with Streamlit | Requires additional setup   |
 
-## 🤝 Contributing
-
-Contributions are welcome! Please fork the repository and submit a pull request with your enhancements.
+---
 
 ## 📜 License
 
