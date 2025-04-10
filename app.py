@@ -1,5 +1,5 @@
 import streamlit as st
-from sections import regression, clustering, neural_network, llm_multimodal
+from sections import home, regression, clustering, neural_network, llm_multimodal
 
 st.set_page_config(
     page_title="ML & AI Explorer",
@@ -9,10 +9,12 @@ st.set_page_config(
 
 st.sidebar.title("Navigation")
 section = st.sidebar.selectbox("Choose a section:", (
-    "Regression", "Clustering", "Neural Network", "LLM Q&A"
+    "Home", "Regression", "Clustering", "Neural Network", "LLM Q&A"
 ))
 
-if section == "Regression":
+if section == "Home":
+    home.home_section()
+elif section == "Regression":
     regression.regression_section()
 elif section == "Clustering":
     clustering.clustering_section()
